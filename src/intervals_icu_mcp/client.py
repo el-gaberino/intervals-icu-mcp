@@ -569,6 +569,7 @@ class ICUClient:
         athlete_id: str | None = None,
         oldest: str | None = None,
         newest: str | None = None,
+        sport_type: str = "Ride",
     ) -> PowerCurve:
         """Get power curve data (best efforts for various durations).
 
@@ -576,20 +577,33 @@ class ICUClient:
             athlete_id: Athlete ID (uses config default if not provided)
             oldest: Oldest date to include (ISO-8601 format)
             newest: Newest date to include (ISO-8601 format)
+            sport_type: Sport type (e.g. "Ride", "Run", "Swim"). Required by API.
 
         Returns:
             PowerCurve with best efforts data
         """
+        from datetime import date as _date
+
         athlete_id = athlete_id or self.config.intervals_icu_athlete_id
-        params = {}
 
+        # API uses a 'curves' param: e.g. "1y", "42d", "r.2025-01-01.2025-12-31"
         if oldest:
-            params["oldest"] = oldest
-        if newest:
-            params["newest"] = newest
+            end = newest or _date.today().isoformat()
+            curves = f"r.{oldest}.{end}"
+        else:
+            curves = "1y"
 
-        response = await self._request("GET", f"/athlete/{athlete_id}/power-curves", params=params)
-        return PowerCurve(**response.json())
+        params: dict[str, str] = {"type": sport_type, "curves": curves}
+
+        # Endpoint requires .json extension; returns DataCurveSetPowerCurve
+        response = await self._request(
+            "GET", f"/athlete/{athlete_id}/power-curves.json", params=params
+        )
+        data = response.json()
+        curves_list = data.get("list", [])
+        if not curves_list:
+            return PowerCurve()
+        return PowerCurve(**curves_list[0])
 
     async def get_hr_curves(
         self,

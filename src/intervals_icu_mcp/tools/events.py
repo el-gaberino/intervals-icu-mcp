@@ -62,7 +62,8 @@ async def get_calendar_events(
             # Group events by date
             events_by_date: dict[str, list[dict[str, Any]]] = {}
             for event in events:
-                date = event.start_date_local
+                # start_date_local may be "YYYY-MM-DD" or "YYYY-MM-DDTHH:MM:SS"
+                date = event.start_date_local[:10]
                 if date not in events_by_date:
                     events_by_date[date] = []
 
@@ -189,7 +190,7 @@ async def get_upcoming_workouts(
 
             workouts_data: list[dict[str, Any]] = []
             for workout in workouts:
-                date_obj = datetime.strptime(workout.start_date_local, "%Y-%m-%d").date()
+                date_obj = datetime.strptime(workout.start_date_local[:10], "%Y-%m-%d").date()
                 today = datetime.now().date()
 
                 if date_obj == today:
