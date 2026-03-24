@@ -7,7 +7,22 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # Type aliases for common enums
 ActivityType = Literal["Ride", "Run", "Swim", "Walk", "Hike", "VirtualRide", "VirtualRun", "Other"]
-EventCategory = Literal["WORKOUT", "NOTE", "RACE", "GOAL"]
+EventCategory = Literal[
+    "WORKOUT",
+    "RACE_A",
+    "RACE_B",
+    "RACE_C",
+    "NOTE",
+    "PLAN",
+    "HOLIDAY",
+    "SICK",
+    "INJURED",
+    "SET_EFTP",
+    "FITNESS_DAYS",
+    "SEASON_START",
+    "TARGET",
+    "SET_FITNESS",
+]
 
 
 # ==================== Athlete Models ====================
@@ -170,7 +185,7 @@ class Event(BaseModel):
 
     id: int
     start_date_local: str  # ISO-8601 date
-    category: str | None = None  # WORKOUT, NOTE, RACE, GOAL
+    category: str | None = None
     name: str | None = None
     description: str | None = None
     type: str | None = None
@@ -188,6 +203,17 @@ class Event(BaseModel):
     athlete_cannot_edit: bool | None = Field(None, alias="athlete_cannot_edit")
     external_id: str | None = Field(None, alias="external_id")
     created_by_id: str | None = Field(None, alias="created_by_id")
+    workout_doc: dict[str, Any] | None = None
+    indoor: bool | None = None
+    target: str | None = None  # AUTO, POWER, HR, PACE
+    tags: list[str] = Field(default_factory=list)
+    sub_type: str | None = None  # NONE, COMMUTE, WARMUP, COOLDOWN, RACE
+    load_target: int | None = None
+    time_target: int | None = None
+    for_week: bool | None = None
+    carbs_per_hour: int | None = None
+    plan_folder_id: int | None = None
+    plan_workout_id: int | None = None
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -212,6 +238,18 @@ class Workout(BaseModel):
     indoor: bool | None = None
     color: str | None = None
     type: str | None = None
+    workout_doc: dict[str, Any] | None = None
+    day: int | None = None
+    days: int | None = None
+    target: str | None = None  # AUTO, POWER, HR, PACE
+    targets: list[dict[str, Any]] | None = None
+    tags: list[str] = Field(default_factory=list)
+    sub_type: str | None = None
+    for_week: bool | None = None
+    hide_from_athlete: bool | None = None
+    carbs_per_hour: int | None = None
+    time: str | None = None
+    updated: str | None = None
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -228,6 +266,16 @@ class Folder(BaseModel):
     duration_weeks: int | None = Field(None, alias="duration_weeks")
     hours_per_week_min: int | None = Field(None, alias="hours_per_week_min")
     hours_per_week_max: int | None = Field(None, alias="hours_per_week_max")
+    type: str | None = None  # FOLDER or PLAN
+    visibility: str | None = None  # PRIVATE or PUBLIC
+    rollout_weeks: int | None = None
+    auto_rollout_day: int | None = None
+    read_only_workouts: bool | None = None
+    starting_ctl: int | None = None
+    starting_atl: int | None = None
+    activity_types: list[str] = Field(default_factory=list)
+    workout_targets: list[str] = Field(default_factory=list)
+    blurb: str | None = None
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -288,12 +336,24 @@ class PaceCurve(BaseModel):
 class AthleteTrainingPlan(BaseModel):
     """Athlete's current training plan."""
 
-    athlete_id: str | None = Field(None, alias="athlete_id")
-    folder_id: int | None = Field(None, alias="folder_id")
-    plan_name: str | None = Field(None, alias="plan_name")
-    start_date_local: str | None = Field(None, alias="start_date_local")
-    end_date_local: str | None = Field(None, alias="end_date_local")
-    weeks_remaining: int | None = Field(None, alias="weeks_remaining")
+    id: str | None = None
+    training_plan_id: int | None = None
+    training_plan_start_date: str | None = None
+    training_plan_alias: str | None = None
+    training_plan_last_applied: str | None = None
+    timezone: str | None = None
+    training_plan: "Folder | None" = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class SharedWith(BaseModel):
+    """Athlete a folder is shared with."""
+
+    id: str
+    name: str | None = None
+    can_edit: bool | None = Field(None, alias="canEdit")
+    email: str | None = None
 
     model_config = ConfigDict(populate_by_name=True)
 
