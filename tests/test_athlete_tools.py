@@ -82,7 +82,9 @@ class TestGetFitnessSummary:
         mock_ctx = MagicMock()
         mock_ctx.get_state.return_value = mock_config
 
-        wellness_high_ramp = [{"id": "2026-03-24", "ctl": 50.0, "atl": 35.0, "tsb": 15.0, "rampRate": 10.0}]
+        wellness_high_ramp = [
+            {"id": "2026-03-24", "ctl": 50.0, "atl": 35.0, "tsb": 15.0, "rampRate": 10.0}
+        ]
 
         respx_mock.get("/athlete/i123456").mock(return_value=Response(200, json=mock_athlete_data))
         respx_mock.get("/athlete/i123456/wellness").mock(

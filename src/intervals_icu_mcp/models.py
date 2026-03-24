@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # Type aliases for common enums
 ActivityType = Literal["Ride", "Run", "Swim", "Walk", "Hike", "VirtualRide", "VirtualRun", "Other"]
@@ -217,6 +217,11 @@ class Event(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
+    @field_validator("tags", mode="before")
+    @classmethod
+    def coerce_tags(cls, v: Any) -> list[str]:
+        return v if v is not None else []
+
 
 # ==================== Workout Library Models ====================
 
@@ -252,6 +257,11 @@ class Workout(BaseModel):
     updated: str | None = None
 
     model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def coerce_tags(cls, v: Any) -> list[str]:
+        return v if v is not None else []
 
 
 class Folder(BaseModel):

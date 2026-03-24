@@ -77,14 +77,25 @@ async def create_event(
         "Event category: WORKOUT, RACE_A, RACE_B, RACE_C, NOTE, PLAN, HOLIDAY, SICK, INJURED, "
         "SET_EFTP, FITNESS_DAYS, SEASON_START, TARGET, or SET_FITNESS",
     ],
-    description: Annotated[str | None, "Event description or Intervals.icu workout syntax"] = None,
+    description: Annotated[
+        str | None,
+        "Event description OR Intervals.icu workout text syntax for structured workouts. "
+        "To create a structured workout with power targets and visual bars, use the text syntax: "
+        "group headers as plain text lines, steps starting with '- <duration> <zone/power>'. "
+        "Duration formats: '10m', '30s', '1h30m'. Power: 'Z1'-'Z7' (zones), '80%' (FTP%), '200w', '179-243w' (range). "
+        "Repeats: '3x' before a group. "
+        "Example: 'Warmup\\n- 10m Z1\\n\\nMain Set\\n- 20m Z4\\n\\nCooldown\\n- 10m Z1'. "
+        "The API parses this into a full structured workout_doc automatically.",
+    ] = None,
     event_type: Annotated[str | None, "Activity type (e.g., Ride, Run, Swim)"] = None,
     duration_seconds: Annotated[int | None, "Planned duration in seconds"] = None,
     distance_meters: Annotated[float | None, "Planned distance in meters"] = None,
     training_load: Annotated[int | None, "Planned training load"] = None,
     workout_doc: Annotated[
         str | None,
-        "JSON string of structured workout document with intervals and targets",
+        "JSON string of structured workout document. NOTE: Direct workout_doc JSON has limited "
+        "API support and does not render in the UI. Use the description field with Intervals.icu "
+        "text syntax instead to create structured workouts.",
     ] = None,
     tags: Annotated[
         str | None, "Comma-separated tags (e.g., 'intervals,threshold,tuesday')"
@@ -140,7 +151,7 @@ async def create_event(
 
     try:
         event_data: dict[str, Any] = {
-            "start_date_local": start_date,
+            "start_date_local": start_date + "T00:00:00",
             "name": name,
             "category": category.upper(),
         }
@@ -198,7 +209,14 @@ async def update_event(
     event_id: Annotated[int, "Event ID to update"],
     name: Annotated[str | None, "Updated event name"] = None,
     description: Annotated[
-        str | None, "Updated description or Intervals.icu workout syntax"
+        str | None,
+        "Updated description OR Intervals.icu workout text syntax for structured workouts. "
+        "To create a structured workout with power targets and visual bars, use the text syntax: "
+        "group headers as plain text lines, steps starting with '- <duration> <zone/power>'. "
+        "Duration formats: '10m', '30s', '1h30m'. Power: 'Z1'-'Z7' (zones), '80%' (FTP%), '200w', '179-243w' (range). "
+        "Repeats: '3x' before a group. "
+        "Example: 'Warmup\\n- 10m Z1\\n\\nMain Set\\n- 20m Z4\\n\\nCooldown\\n- 10m Z1'. "
+        "The API parses this into a full structured workout_doc automatically.",
     ] = None,
     start_date: Annotated[str | None, "Updated start date (YYYY-MM-DD)"] = None,
     event_type: Annotated[str | None, "Updated activity type"] = None,
@@ -207,7 +225,9 @@ async def update_event(
     training_load: Annotated[int | None, "Updated training load"] = None,
     workout_doc: Annotated[
         str | None,
-        "JSON string of updated structured workout document",
+        "JSON string of updated structured workout document. NOTE: Direct workout_doc JSON has "
+        "limited API support and does not render in the UI. Use the description field with "
+        "Intervals.icu text syntax instead to create structured workouts.",
     ] = None,
     tags: Annotated[str | None, "Updated comma-separated tags"] = None,
     indoor: Annotated[bool | None, "Whether this is an indoor workout"] = None,
@@ -419,6 +439,9 @@ async def bulk_create_events(
                     f"Event {i}: Invalid date format. Please use YYYY-MM-DD format.",
                     error_type="validation_error",
                 )
+
+            # API requires full datetime format
+            event_data["start_date_local"] = event_data["start_date_local"] + "T00:00:00"
 
         async with ICUClient(config) as client:
             created_events = await client.bulk_create_events(events_data)
