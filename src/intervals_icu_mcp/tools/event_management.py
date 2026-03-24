@@ -98,7 +98,10 @@ async def create_event(
         "text syntax instead to create structured workouts.",
     ] = None,
     tags: Annotated[
-        str | None, "Comma-separated tags (e.g., 'intervals,threshold,tuesday')"
+        str | None,
+        "Comma-separated tags (e.g., 'intervals,threshold'). "
+        "NOTE: Do NOT add tags unless the user explicitly requests them. "
+        "Tags render as visible hashtags on the event name in the UI, which is distracting.",
     ] = None,
     indoor: Annotated[bool | None, "Whether this is an indoor workout"] = None,
     target: Annotated[str | None, "Target metric: AUTO, POWER, HR, or PACE"] = None,
