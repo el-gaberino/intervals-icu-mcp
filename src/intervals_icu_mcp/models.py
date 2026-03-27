@@ -419,9 +419,17 @@ class Interval(BaseModel):
 
 
 class ActivityStreams(BaseModel):
-    """Time-series data streams for an activity."""
+    """Time-series data streams for an activity.
+
+    Note: when fetching all streams (no type filter), the API returns fixed_watts
+    renamed to 'raw_watts'. When specific types are requested including 'watts',
+    fixed_watts is returned as 'watts'.
+    """
+
+    model_config = ConfigDict(extra="allow")
 
     watts: list[int | None] | None = None
+    raw_watts: list[int | None] | None = None  # returned when types=null
     heartrate: list[int | None] | None = None
     cadence: list[int | None] | None = None
     velocity_smooth: list[float | None] | None = None
