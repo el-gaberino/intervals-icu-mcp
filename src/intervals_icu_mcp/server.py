@@ -332,8 +332,10 @@ Then offer to create the events in my calendar if I approve the plan."""
 
 def main():
     """Main entry point for the Intervals.icu MCP server."""
-    # Run the server with stdio transport (default)
-    mcp.run()
+    import os
+
+    transport = os.environ.get("MCP_TRANSPORT", "stdio")
+    mcp.run(transport=transport)
 
 
 if __name__ == "__main__":

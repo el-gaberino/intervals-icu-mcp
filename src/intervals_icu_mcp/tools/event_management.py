@@ -14,7 +14,7 @@ async def create_event(
     start_date: Annotated[str, "Start date in YYYY-MM-DD format"],
     name: Annotated[str, "Event name"],
     category: Annotated[str, "Event category: WORKOUT, NOTE, RACE, or GOAL"],
-    description: Annotated[str | None, "Event description (optional)"] = None,
+    description: Annotated[str | None, "Event description. For WORKOUT events, use intervals.icu workout text syntax to create structured workouts with colored zone blocks. Format: section headers (Warmup/Main Set/Cooldown) on own lines, steps start with '- '. Power: N% (of FTP), Nw (watts), ZN (zone). HR: N% HR, ZN HR. Duration: Nm, Ns, Nh. Repeats: 'Main Set 3x'. Ramps: 'ramp 50-75%'. Cadence: Nrpm. Example: 'Warmup\\n- 10m 55%\\n\\nMain Set 3x\\n- 5m 95-105%\\n- 3m 50%\\n\\nCooldown\\n- 10m 45%'"] = None,
     event_type: Annotated[str | None, "Activity type (e.g., Ride, Run, Swim)"] = None,
     duration_seconds: Annotated[int | None, "Planned duration in seconds"] = None,
     distance_meters: Annotated[float | None, "Planned distance in meters"] = None,
@@ -26,11 +26,15 @@ async def create_event(
     Adds an event to your Intervals.icu calendar. Events can be workouts with
     planned metrics, notes for tracking information, races, or training goals.
 
+    For structured workouts with colored zone blocks, put workout steps in the
+    description field using intervals.icu text syntax. The server will parse it
+    and generate the visual workout structure automatically.
+
     Args:
         start_date: Date in ISO-8601 format (YYYY-MM-DD)
         name: Name of the event
         category: Type of event - WORKOUT, NOTE, RACE, or GOAL
-        description: Optional detailed description
+        description: For workouts, use intervals.icu text syntax for structured steps
         event_type: Activity type (e.g., "Ride", "Run", "Swim") for workouts
         duration_seconds: Planned duration for workouts
         distance_meters: Planned distance for workouts
@@ -62,7 +66,7 @@ async def create_event(
     try:
         # Build event data
         event_data: dict[str, Any] = {
-            "start_date_local": start_date,
+            "start_date_local": f"{start_date}T00:00:00",
             "name": name,
             "category": category.upper(),
         }
@@ -164,7 +168,7 @@ async def update_event(
         if description is not None:
             event_data["description"] = description
         if start_date is not None:
-            event_data["start_date_local"] = start_date
+            event_data["start_date_local"] = f"{start_date}T00:00:00"
         if event_type is not None:
             event_data["type"] = event_type
         if duration_seconds is not None:
@@ -322,9 +326,10 @@ async def bulk_create_events(
             # Normalize category to uppercase
             event_data["category"] = event_data["category"].upper()
 
-            # Validate date format
+            # Validate date format and convert to full datetime
             try:
                 datetime.strptime(event_data["start_date_local"], "%Y-%m-%d")
+                event_data["start_date_local"] = f"{event_data['start_date_local']}T00:00:00"
             except ValueError:
                 return ResponseBuilder.build_error_response(
                     f"Event {i}: Invalid date format. Please use YYYY-MM-DD format.",
@@ -463,7 +468,7 @@ async def duplicate_event(
 
     try:
         async with ICUClient(config) as client:
-            duplicated_event = await client.duplicate_event(event_id, new_date)
+            duplicated_event = await client.duplicate_event(event_id, f"{new_date}T00:00:00")
 
             event_result: dict[str, Any] = {
                 "id": duplicated_event.id,

@@ -569,6 +569,7 @@ class ICUClient:
         athlete_id: str | None = None,
         oldest: str | None = None,
         newest: str | None = None,
+        sport_type: str | None = None,
     ) -> PowerCurve:
         """Get power curve data (best efforts for various durations).
 
@@ -576,6 +577,7 @@ class ICUClient:
             athlete_id: Athlete ID (uses config default if not provided)
             oldest: Oldest date to include (ISO-8601 format)
             newest: Newest date to include (ISO-8601 format)
+            sport_type: Activity type (e.g., 'Ride', 'Run', 'Swim')
 
         Returns:
             PowerCurve with best efforts data
@@ -587,6 +589,8 @@ class ICUClient:
             params["oldest"] = oldest
         if newest:
             params["newest"] = newest
+        if sport_type:
+            params["type"] = sport_type
 
         response = await self._request("GET", f"/athlete/{athlete_id}/power-curves", params=params)
         return PowerCurve(**response.json())
