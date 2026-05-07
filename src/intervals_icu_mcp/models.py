@@ -94,6 +94,11 @@ class ActivitySummary(BaseModel):
     average_cadence: float | None = None
     icu_training_load: int | None = None
     icu_intensity: float | None = None
+    # Additional metrics for bulk queries
+    efficiency_factor: float | None = Field(None, alias="icu_efficiency_factor")
+    decoupling: float | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class Activity(ActivitySummary):
@@ -398,6 +403,30 @@ class FitnessSummary(BaseModel):
 
 
 # ==================== Activity Interval Models ====================
+
+
+class IntervalGroup(BaseModel):
+    """Group of intervals (e.g., a set of repetitions)."""
+    
+    id: str | int | None = None  # API returns string IDs like '658s@140w91rpm'
+    name: str | None = None
+    start: int | None = None
+    end: int | None = None
+    duration: int | None = None
+    intervals: list["Interval"] = Field(default_factory=list)
+
+
+class IntervalsDTO(BaseModel):
+    """Response from /activity/{id}/intervals API.
+    
+    The API returns an object with 'icu_intervals' and 'icu_groups' fields,
+    not a direct list of intervals.
+    """
+    
+    id: str | None = None
+    analyzed: str | None = None  # ISO datetime
+    icu_intervals: list["Interval"] = Field(default_factory=list)
+    icu_groups: list[IntervalGroup] = Field(default_factory=list)
 
 
 class Interval(BaseModel):

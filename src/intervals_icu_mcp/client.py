@@ -21,6 +21,8 @@ from .models import (
     Histogram,
     HRCurve,
     Interval,
+    IntervalGroup,
+    IntervalsDTO,
     PaceCurve,
     PowerCurve,
     SharedWith,
@@ -699,8 +701,10 @@ class ICUClient:
             List of Interval objects
         """
         response = await self._request("GET", f"/activity/{activity_id}/intervals")
-        adapter = TypeAdapter(list[Interval])
-        return adapter.validate_python(response.json())
+        # API returns IntervalsDTO with icu_intervals and icu_groups fields
+        dto = TypeAdapter(IntervalsDTO).validate_python(response.json())
+        # Return intervals from icu_intervals field
+        return dto.icu_intervals if dto.icu_intervals else []
 
     async def get_activity_streams(
         self,
@@ -735,18 +739,47 @@ class ICUClient:
     async def get_best_efforts(
         self,
         activity_id: str,
+        stream: str = "watts",
+        duration: int | None = None,
+        distance: float | None = None,
+        count: int | None = None,
     ) -> list[BestEffort]:
         """Get best efforts for an activity.
 
         Args:
             activity_id: Activity ID
+            stream: Stream type to search (e.g., "watts", "heartrate", "cadence"). Required by API.
+            duration: Duration of each effort in seconds (optional, but one of duration/distance required)
+            distance: Distance of each effort in meters (optional, but one of duration/distance required)
+            count: Number of efforts to return (optional, default 8)
 
         Returns:
             List of BestEffort objects
+        
+        Note:
+            The API requires either duration or distance to be specified.
+            If neither is provided, duration defaults to common durations.
         """
-        response = await self._request("GET", f"/activity/{activity_id}/best-efforts")
+        # API requires either duration or distance - default to common durations if neither provided
+        if duration is None and distance is None:
+            # Use common cycling durations: 5s, 15s, 30s, 1min, 5min, 20min, 1h
+            # We'll request 8 efforts at default durations
+            duration = 300  # 5 minutes as reasonable default
+        
+        params = {"stream": stream}
+        if duration is not None:
+            params["duration"] = duration
+        if distance is not None:
+            params["distance"] = distance
+        if count is not None:
+            params["count"] = count
+        
+        response = await self._request("GET", f"/activity/{activity_id}/best-efforts", params=params)
+        # API returns {"efforts": [...]} not a direct list
+        data = response.json()
+        efforts = data.get("efforts", data)  # fallback to data if no 'efforts' key
         adapter = TypeAdapter(list[BestEffort])
-        return adapter.validate_python(response.json())
+        return adapter.validate_python(efforts)
 
     async def search_intervals(
         self,

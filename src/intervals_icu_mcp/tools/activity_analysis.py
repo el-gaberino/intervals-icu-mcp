@@ -218,6 +218,9 @@ async def get_activity_intervals(
 
 async def get_best_efforts(
     activity_id: Annotated[str, "Activity ID to analyze"],
+    stream: Annotated[str, "Stream type to search (watts, heartrate, cadence, velocity_smooth)"] = "watts",
+    duration: Annotated[int | None, "Duration of each effort in seconds (optional)"] = None,
+    count: Annotated[int | None, "Number of efforts to return (optional, default 8)"] = None,
     ctx: Context | None = None,
 ) -> str:
     """Get best efforts/peak performances from an activity.
@@ -226,8 +229,14 @@ async def get_best_efforts(
     (e.g., best 5-second power, best 1-minute power, best 20-minute power).
     Similar to Strava segments but for all durations.
 
+    Note: The API requires a 'stream' parameter. Use 'watts' for power-based efforts,
+    'heartrate' for HR-based efforts, 'cadence' for cadence-based efforts.
+
     Args:
         activity_id: The unique ID of the activity
+        stream: Stream type to search - 'watts' (default), 'heartrate', 'cadence', 'velocity_smooth'
+        duration: Duration of each effort in seconds (optional)
+        count: Number of efforts to return (optional, default 8)
 
     Returns:
         JSON string with best efforts data
@@ -237,7 +246,9 @@ async def get_best_efforts(
 
     try:
         async with ICUClient(config) as client:
-            best_efforts = await client.get_best_efforts(activity_id)
+            best_efforts = await client.get_best_efforts(
+                activity_id, stream=stream, duration=duration, count=count
+            )
 
             if not best_efforts:
                 return ResponseBuilder.build_response(

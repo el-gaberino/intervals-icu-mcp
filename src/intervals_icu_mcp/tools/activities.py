@@ -846,3 +846,175 @@ async def get_activities_around(
         return ResponseBuilder.build_error_response(
             f"Unexpected error: {str(e)}", error_type="internal_error"
         )
+
+
+async def get_activities_bulk(
+    days_back: Annotated[int, "Number of days to look back (default 60)"] = 60,
+    include_metrics: Annotated[list[str] | None, "Metrics to include: efficiency_factor, decoupling, normalized_power, avg_hr, tss"] = None,
+    activity_type: Annotated[str | None, "Filter by activity type (Ride, VirtualRide, Run, etc.)"] = None,
+    ctx: Context | None = None,
+) -> str:
+    """Get bulk activities with detailed metrics for reporting.
+
+    Retrieves activities over a specified time range with key metrics including
+    efficiency factor, decoupling, normalized power, and heart rate.
+    Designed for monthly progress reports and trend analysis.
+
+    This is more efficient than calling get_activity_details for each activity
+    when you need metrics for many activities at once.
+
+    Args:
+        days_back: Number of days to look back (default 60, max 365)
+        include_metrics: List of metrics to include (default: all key metrics)
+            - efficiency_factor: Power/HR ratio (aerobic efficiency)
+            - decoupling: Power vs HR drift (fatigue indicator)
+            - normalized_power: Weighted average power
+            - avg_hr: Average heart rate
+            - tss: Training Stress Score
+            - distance: Total distance
+            - moving_time: Active time
+        activity_type: Filter by type (Ride, VirtualRide, Run, etc.)
+
+    Returns:
+        JSON string with activities array and summary statistics
+    """
+    assert ctx is not None
+    config: ICUConfig = ctx.get_state("config")
+
+    # Default metrics if not specified
+    if include_metrics is None:
+        include_metrics = [
+            "efficiency_factor",
+            "decoupling",
+            "normalized_power",
+            "avg_hr",
+            "tss",
+            "distance",
+            "moving_time",
+            "average_watts",
+            "icu_training_load",
+        ]
+
+    # Cap days_back at 365
+    days_back = min(days_back, 365)
+
+    try:
+        from datetime import datetime as dt
+        from datetime import timedelta
+
+        oldest_date = dt.now() - timedelta(days=days_back)
+        oldest = oldest_date.strftime("%Y-%m-%d")
+
+        async with ICUClient(config) as client:
+            # Get activities with all details
+            activities = await client.get_activities(
+                oldest=oldest,
+                limit=500,  # Max allowed
+            )
+
+            if not activities:
+                return ResponseBuilder.build_response(
+                    data={"activities": [], "count": 0, "days_back": days_back},
+                    metadata={"message": "No activities found in the specified period"},
+                )
+
+            # Filter by type if specified
+            if activity_type:
+                activities = [a for a in activities if a.type == activity_type]
+
+            activities_data: list[dict[str, Any]] = []
+
+            # Summary stats
+            total_tss = 0
+            total_distance = 0.0
+            total_time = 0
+            ef_values: list[float] = []
+            dec_values: list[float] = []
+            np_values: list[int] = []
+            hr_values: list[int] = []
+
+            for activity in activities:
+                act_data: dict[str, Any] = {
+                    "id": activity.id,
+                    "date": activity.start_date_local.strftime("%Y-%m-%d") if activity.start_date_local else None,
+                    "name": activity.name,
+                    "type": activity.type,
+                }
+
+                # Extract metrics based on include_metrics
+                if "distance" in include_metrics and activity.distance:
+                    act_data["distance_meters"] = activity.distance
+                    total_distance += activity.distance
+
+                if "moving_time" in include_metrics and activity.moving_time:
+                    act_data["moving_time_seconds"] = activity.moving_time
+                    total_time += activity.moving_time
+
+                if "tss" in include_metrics:
+                    # Try to get TSS from various fields
+                    if hasattr(activity, "tss") and activity.tss:
+                        act_data["tss"] = activity.tss
+                        total_tss += activity.tss
+                    elif activity.icu_training_load:
+                        act_data["tss"] = activity.icu_training_load
+                        total_tss += activity.icu_training_load
+
+                if "normalized_power" in include_metrics and activity.normalized_power:
+                    act_data["normalized_power"] = activity.normalized_power
+                    np_values.append(activity.normalized_power)
+
+                if "average_watts" in include_metrics and activity.average_watts:
+                    act_data["average_watts"] = activity.average_watts
+
+                if "avg_hr" in include_metrics and activity.average_heartrate:
+                    act_data["avg_hr"] = activity.average_heartrate
+                    hr_values.append(activity.average_heartrate)
+
+                if "efficiency_factor" in include_metrics:
+                    # Try icu_efficiency_factor first (API field name)
+                    ef = getattr(activity, "efficiency_factor", None)
+                    if ef:
+                        act_data["efficiency_factor"] = ef
+                        ef_values.append(ef)
+
+                if "decoupling" in include_metrics:
+                    dec = getattr(activity, "decoupling", None)
+                    if dec:
+                        act_data["decoupling"] = dec
+                        dec_values.append(dec)
+
+                if "icu_training_load" in include_metrics and activity.icu_training_load:
+                    act_data["training_load"] = activity.icu_training_load
+
+                activities_data.append(act_data)
+
+            # Calculate summary statistics
+            summary = {
+                "total_activities": len(activities_data),
+                "days_covered": days_back,
+                "total_tss": total_tss,
+                "total_distance_km": round(total_distance / 1000, 1),
+                "total_time_hours": round(total_time / 3600, 1),
+                "avg_ef": round(sum(ef_values) / len(ef_values), 2) if ef_values else None,
+                "avg_decoupling": round(sum(dec_values) / len(dec_values), 2) if dec_values else None,
+                "avg_np": round(sum(np_values) / len(np_values)) if np_values else None,
+                "avg_hr": round(sum(hr_values) / len(hr_values)) if hr_values else None,
+            }
+
+            result_data = {
+                "activities": activities_data,
+                "count": len(activities_data),
+                "summary": summary,
+            }
+
+            return ResponseBuilder.build_response(
+                data=result_data,
+                query_type="activities_bulk",
+            )
+
+    except ICUAPIError as e:
+        return ResponseBuilder.build_error_response(e.message, error_type="api_error")
+    except Exception as e:
+        return ResponseBuilder.build_error_response(
+            f"Unexpected error: {str(e)}", error_type="internal_error"
+        )

@@ -23,6 +23,7 @@ from .tools.activities import (
     download_fit_file,
     download_gpx_file,
     get_activities_around,
+    get_activities_bulk,
     get_activity_details,
     get_recent_activities,
     search_activities,
@@ -97,6 +98,7 @@ mcp.tool()(get_activity_details)
 mcp.tool()(search_activities)
 mcp.tool()(search_activities_full)
 mcp.tool()(get_activities_around)
+mcp.tool()(get_activities_bulk)
 mcp.tool()(update_activity)
 mcp.tool()(delete_activity)
 mcp.tool()(download_activity_file)
