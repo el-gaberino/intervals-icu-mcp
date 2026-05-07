@@ -43,6 +43,12 @@ async def get_athlete_profile(
                 profile["dob"] = athlete.dob
             if athlete.weight:
                 profile["weight_kg"] = athlete.weight
+            if athlete.city:
+                profile["city"] = athlete.city
+            if athlete.country:
+                profile["country"] = athlete.country
+            if athlete.icu_resting_hr:
+                profile["resting_hr"] = athlete.icu_resting_hr
 
             # Fitness metrics come from wellness records, not the athlete endpoint
             fitness: dict[str, Any] = {}

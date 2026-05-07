@@ -286,7 +286,7 @@ async def update_event(
         if description is not None:
             event_data["description"] = description
         if start_date is not None:
-            event_data["start_date_local"] = start_date
+            event_data["start_date_local"] = f"{start_date}T00:00:00"
         if event_type is not None:
             event_data["type"] = event_type
         if duration_seconds is not None:
@@ -437,6 +437,7 @@ async def bulk_create_events(
 
             try:
                 datetime.strptime(event_data["start_date_local"], "%Y-%m-%d")
+                event_data["start_date_local"] = f"{event_data['start_date_local']}T00:00:00"
             except ValueError:
                 return ResponseBuilder.build_error_response(
                     f"Event {i}: Invalid date format. Please use YYYY-MM-DD format.",
@@ -545,7 +546,7 @@ async def duplicate_event(
 
     try:
         async with ICUClient(config) as client:
-            duplicated_event = await client.duplicate_event(event_id, new_date)
+            duplicated_event = await client.duplicate_event(event_id, f"{new_date}T00:00:00")
 
             result = _event_to_dict(duplicated_event)
             result["original_event_id"] = event_id

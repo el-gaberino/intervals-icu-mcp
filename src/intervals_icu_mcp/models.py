@@ -42,17 +42,22 @@ class SportSettings(BaseModel):
 class Athlete(BaseModel):
     """Full athlete profile information."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str
     name: str
     email: str | None = None
-    weight: float | None = None
-    dob: str | None = None
+    weight: float | None = Field(None, alias="icu_weight")
+    dob: str | None = Field(None, alias="icu_date_of_birth")
     sex: str | None = None
+    city: str | None = None
+    country: str | None = None
     created: datetime | None = None
     ctl: float | None = None
     atl: float | None = None
     tsb: float | None = None
     ramp_rate: float | None = None
+    icu_resting_hr: int | None = None
     sport_settings: list[SportSettings] = Field(default_factory=list)
 
 
