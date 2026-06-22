@@ -288,8 +288,9 @@ class Folder(BaseModel):
     read_only_workouts: bool | None = None
     starting_ctl: int | None = None
     starting_atl: int | None = None
-    activity_types: list[str] = Field(default_factory=list)
-    workout_targets: list[str] = Field(default_factory=list)
+    # API sends these keys present-but-null, so default_factory won't fire; allow None explicitly.
+    activity_types: list[str] | None = None
+    workout_targets: list[str] | None = None
     blurb: str | None = None
 
     model_config = ConfigDict(populate_by_name=True)
@@ -511,7 +512,7 @@ class HistogramBin(BaseModel):
 
     min: float  # Minimum value for this bin
     max: float  # Maximum value for this bin
-    count: int  # Number of data points in this bin
+    count: int | None = None  # Number of data points (API may omit, returning only secs)
     secs: int | None = None  # Time spent in this bin (seconds)
 
 

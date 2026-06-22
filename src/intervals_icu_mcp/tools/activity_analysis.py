@@ -217,87 +217,41 @@ async def get_activity_intervals(
 
 
 async def get_best_efforts(
-    activity_id: Annotated[str, "Activity ID to analyze"],
+    activity_id: Annotated[str, "Activity ID (kept for backward compatibility; unused)"],
     ctx: Context | None = None,
 ) -> str:
-    """Get best efforts/peak performances from an activity.
+    """[DEPRECATED] Use get_power_curves for peak-power best efforts.
 
-    Analyzes the activity to find the best performances across various durations
-    (e.g., best 5-second power, best 1-minute power, best 20-minute power).
-    Similar to Strava segments but for all durations.
+    The per-activity /best-efforts endpoint requires a stream plus an explicit
+    duration/distance per call and cannot return a full multi-duration curve in
+    one request. For peak efforts across durations (5s, 1m, 5m, 20m, 1h), use
+    get_power_curves, which is already scoped to a time period and returns the
+    full curve. For a single activity's peaks, narrow get_power_curves to that
+    activity's date range, or read the CP/W' model from get_activity_details.
 
     Args:
-        activity_id: The unique ID of the activity
+        activity_id: Accepted for backward compatibility; not used.
 
     Returns:
-        JSON string with best efforts data
+        JSON string with a deprecation notice pointing to get_power_curves.
     """
     assert ctx is not None
-    config: ICUConfig = ctx.get_state("config")
 
-    try:
-        async with ICUClient(config) as client:
-            best_efforts = await client.get_best_efforts(activity_id)
-
-            if not best_efforts:
-                return ResponseBuilder.build_response(
-                    data={"best_efforts": [], "count": 0, "activity_id": activity_id},
-                    metadata={"message": "No best efforts found for this activity"},
-                )
-
-            efforts_data: list[dict[str, Any]] = []
-            for effort in best_efforts:
-                effort_item: dict[str, Any] = {
-                    "name": effort.name,
-                    "elapsed_time_seconds": effort.elapsed_time,
-                }
-
-                if effort.moving_time:
-                    effort_item["moving_time_seconds"] = effort.moving_time
-                if effort.distance:
-                    effort_item["distance_meters"] = effort.distance
-
-                # Performance metrics
-                performance: dict[str, Any] = {}
-                if effort.average_watts:
-                    performance["average_watts"] = effort.average_watts
-                if effort.normalized_power:
-                    performance["normalized_power"] = effort.normalized_power
-                if effort.average_heartrate:
-                    performance["average_heartrate"] = effort.average_heartrate
-                if effort.average_cadence:
-                    performance["average_cadence"] = effort.average_cadence
-                if effort.average_speed:
-                    performance["average_speed_meters_per_sec"] = effort.average_speed
-
-                if performance:
-                    effort_item["performance"] = performance
-
-                # Location in activity
-                if effort.start_index is not None:
-                    effort_item["start_index"] = effort.start_index
-                if effort.end_index is not None:
-                    effort_item["end_index"] = effort.end_index
-
-                efforts_data.append(effort_item)
-
-            result_data = {
-                "activity_id": activity_id,
-                "best_efforts": efforts_data,
-                "count": len(efforts_data),
-            }
-
-            return ResponseBuilder.build_response(
-                data=result_data,
-                query_type="best_efforts",
-            )
-
-    except ICUAPIError as e:
-        return ResponseBuilder.build_error_response(e.message, error_type="api_error")
-    except Exception as e:
-        return ResponseBuilder.build_error_response(
-            f"Unexpected error: {str(e)}", error_type="internal_error"
-        )
+    return ResponseBuilder.build_response(
+        data={
+            "deprecated": True,
+            "activity_id": activity_id,
+            "use_instead": "get_power_curves",
+        },
+        metadata={
+            "message": (
+                "get_best_efforts is deprecated. The intervals.icu best-efforts "
+                "endpoint returns one duration at a time and cannot build a full "
+                "curve in a single call. Use get_power_curves for peak power across "
+                "durations, or get_activity_details for this activity's CP/W' model."
+            ),
+        },
+    )
 
 
 async def search_intervals(
@@ -406,8 +360,9 @@ async def get_power_histogram(
             for bin_item in histogram.bins:
                 bin_data: dict[str, Any] = {
                     "power_range": {"min_watts": int(bin_item.min), "max_watts": int(bin_item.max)},
-                    "count": bin_item.count,
                 }
+                if bin_item.count is not None:
+                    bin_data["count"] = bin_item.count
                 if bin_item.secs is not None:
                     bin_data["time_seconds"] = bin_item.secs
                 bins_data.append(bin_data)
@@ -466,8 +421,9 @@ async def get_hr_histogram(
             for bin_item in histogram.bins:
                 bin_data: dict[str, Any] = {
                     "hr_range": {"min_bpm": int(bin_item.min), "max_bpm": int(bin_item.max)},
-                    "count": bin_item.count,
                 }
+                if bin_item.count is not None:
+                    bin_data["count"] = bin_item.count
                 if bin_item.secs is not None:
                     bin_data["time_seconds"] = bin_item.secs
                 bins_data.append(bin_data)
@@ -537,8 +493,9 @@ async def get_pace_histogram(
                         "min_pace_formatted": f"{min_minutes}:{min_seconds:02d} /km",
                         "max_pace_formatted": f"{max_minutes}:{max_seconds:02d} /km",
                     },
-                    "count": bin_item.count,
                 }
+                if bin_item.count is not None:
+                    bin_data["count"] = bin_item.count
                 if bin_item.secs is not None:
                     bin_data["time_seconds"] = bin_item.secs
                 bins_data.append(bin_data)
@@ -608,8 +565,9 @@ async def get_gap_histogram(
                         "min_gap_formatted": f"{min_minutes}:{min_seconds:02d} /km",
                         "max_gap_formatted": f"{max_minutes}:{max_seconds:02d} /km",
                     },
-                    "count": bin_item.count,
                 }
+                if bin_item.count is not None:
+                    bin_data["count"] = bin_item.count
                 if bin_item.secs is not None:
                     bin_data["time_seconds"] = bin_item.secs
                 bins_data.append(bin_data)
