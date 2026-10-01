@@ -16,6 +16,9 @@ jobs:
 
   build-and-push:
     name: Build and Push Docker Image
+    # The image name is the upstream registry; only publish from the upstream repo.
+    # Forks still run the test job on pushes to main.
+    if: github.repository == 'eddmann/intervals-icu-mcp'
     runs-on: ubuntu-latest
     needs: test
     permissions:

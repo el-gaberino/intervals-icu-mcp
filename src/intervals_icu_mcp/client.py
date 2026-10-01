@@ -1,6 +1,6 @@
 """Async HTTP client for Intervals.icu API."""
 
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from pydantic import TypeAdapter
@@ -704,8 +704,10 @@ class ICUClient:
         """
         response = await self._request("GET", f"/activity/{activity_id}/intervals")
         # API returns a dict {id, analyzed, icu_intervals, icu_groups}, not a bare list.
-        data = response.json()
-        intervals = data.get("icu_intervals", []) if isinstance(data, dict) else data
+        data: Any = response.json()
+        intervals: Any = (
+            cast(dict[str, Any], data).get("icu_intervals", []) if isinstance(data, dict) else data
+        )
         adapter = TypeAdapter(list[Interval])
         return adapter.validate_python(intervals)
 

@@ -1,6 +1,6 @@
 """Intervals.icu MCP Server - FastMCP entry point."""
 
-from typing import Any
+from typing import Any, Literal, cast
 
 from dotenv import load_dotenv
 from fastmcp import FastMCP
@@ -387,12 +387,20 @@ Provide a structured weekly plan with:
 Then offer to create the events in my calendar if I approve the plan."""
 
 
+Transport = Literal["stdio", "http", "sse", "streamable-http"]
+VALID_TRANSPORTS: tuple[str, ...] = ("stdio", "http", "sse", "streamable-http")
+
+
 def main():
     """Main entry point for the Intervals.icu MCP server."""
     import os
 
     transport = os.environ.get("MCP_TRANSPORT", "stdio")
-    mcp.run(transport=transport)
+    if transport not in VALID_TRANSPORTS:
+        raise SystemExit(
+            f"Invalid MCP_TRANSPORT '{transport}'. Use one of: {', '.join(VALID_TRANSPORTS)}"
+        )
+    mcp.run(transport=cast(Transport, transport))
 
 
 if __name__ == "__main__":
