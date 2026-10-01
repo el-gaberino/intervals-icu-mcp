@@ -13,6 +13,11 @@ from ..response_builder import ResponseBuilder
 async def get_calendar_events(
     days_ahead: Annotated[int, "Number of days to look ahead"] = 7,
     days_back: Annotated[int, "Number of days to look back"] = 0,
+    include_descriptions: Annotated[
+        bool,
+        "Include event descriptions (default true). Set false for a compact view of what is "
+        "scheduled; descriptions are the bulk of the payload.",
+    ] = True,
     ctx: Context | None = None,
 ) -> str:
     """Get planned events and workouts from the calendar.
@@ -23,6 +28,7 @@ async def get_calendar_events(
     Args:
         days_ahead: Number of days to look ahead (default 7)
         days_back: Number of days to look back (default 0)
+        include_descriptions: Include event descriptions (default true)
 
     Returns:
         JSON string with calendar events
@@ -108,7 +114,7 @@ async def get_calendar_events(
                         event_item["intensity_factor"] = event.icu_intensity
 
                 # Description
-                if event.description:
+                if event.description and include_descriptions:
                     event_item["description"] = event.description.strip()
 
                 events_by_date[date].append(event_item)

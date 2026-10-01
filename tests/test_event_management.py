@@ -278,6 +278,24 @@ class TestBulkCreateEvents:
         response = json.loads(result)
         assert "data" in response
 
+    async def test_bulk_create_sends_date_unmodified(self, mock_config, respx_mock):
+        """Regression: the T00:00:00 suffix was appended twice (double-date bug)."""
+        mock_ctx = MagicMock()
+        mock_ctx.get_state.return_value = mock_config
+
+        route = respx_mock.post("/athlete/i123456/events/bulk").mock(
+            return_value=Response(200, json=[make_event_response()])
+        )
+
+        events_json = json.dumps(
+            [{"start_date_local": "2026-04-01", "name": "Ride 1", "category": "WORKOUT"}]
+        )
+
+        await bulk_create_events(events=events_json, ctx=mock_ctx)
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent[0]["start_date_local"] == "2026-04-01T00:00:00"
+
     async def test_bulk_create_invalid_json(self, mock_config):
         mock_ctx = MagicMock()
         mock_ctx.get_state.return_value = mock_config

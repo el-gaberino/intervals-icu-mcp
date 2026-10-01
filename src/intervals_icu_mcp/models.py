@@ -58,7 +58,7 @@ class Athlete(BaseModel):
     tsb: float | None = None
     ramp_rate: float | None = None
     icu_resting_hr: int | None = None
-    sport_settings: list[SportSettings] = Field(default_factory=list)
+    sport_settings: list[SportSettings] = Field(default_factory=list[SportSettings])
 
 
 class AthleteProfile(BaseModel):
@@ -74,6 +74,13 @@ class AthleteProfile(BaseModel):
 
 
 # ==================== Activity Models ====================
+
+
+class ZoneTime(BaseModel):
+    """Seconds spent in one power zone (id is e.g. "Z1".."Z7" or "SS")."""
+
+    id: str
+    secs: int = 0
 
 
 class ActivitySummary(BaseModel):
@@ -94,6 +101,20 @@ class ActivitySummary(BaseModel):
     average_cadence: float | None = None
     icu_training_load: int | None = None
     icu_intensity: float | None = None
+    # Analysis fields returned by the activities list endpoint (all optional).
+    commute: bool | None = None
+    trainer: bool | None = None
+    icu_ftp: int | None = None
+    lthr: int | None = None
+    icu_weighted_avg_watts: int | None = None
+    icu_joules: int | None = None
+    coasting_time: int | None = None
+    decoupling: float | None = None
+    icu_efficiency_factor: float | None = None
+    icu_zone_times: list[ZoneTime] | None = None
+    icu_hr_zone_times: list[int] | None = None
+    icu_hr_zones: list[int] | None = None
+    icu_power_zones: list[int] | None = None
 
 
 class Activity(ActivitySummary):
@@ -118,8 +139,6 @@ class Activity(ActivitySummary):
     perceived_exertion: int | None = None
     compliance: float | None = None
     avg_lr_balance: float | None = None
-    commute: bool | None = None
-    trainer: bool | None = None
     indoor: bool | None = None
     analyzed: str | None = None
 
@@ -211,7 +230,7 @@ class Event(BaseModel):
     workout_doc: dict[str, Any] | None = None
     indoor: bool | None = None
     target: str | None = None  # AUTO, POWER, HR, PACE
-    tags: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list[str])
     sub_type: str | None = None  # NONE, COMMUTE, WARMUP, COOLDOWN, RACE
     load_target: int | None = None
     time_target: int | None = None
@@ -253,7 +272,7 @@ class Workout(BaseModel):
     days: int | None = None
     target: str | None = None  # AUTO, POWER, HR, PACE
     targets: list[dict[str, Any]] | None = None
-    tags: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list[str])
     sub_type: str | None = None
     for_week: bool | None = None
     hide_from_athlete: bool | None = None
@@ -288,8 +307,9 @@ class Folder(BaseModel):
     read_only_workouts: bool | None = None
     starting_ctl: int | None = None
     starting_atl: int | None = None
-    activity_types: list[str] = Field(default_factory=list)
-    workout_targets: list[str] = Field(default_factory=list)
+    # API sends these keys present-but-null, so default_factory won't fire; allow None explicitly.
+    activity_types: list[str] | None = None
+    workout_targets: list[str] | None = None
     blurb: str | None = None
 
     model_config = ConfigDict(populate_by_name=True)
@@ -320,9 +340,9 @@ class PowerCurve(BaseModel):
     label: str | None = None
     start_date_local: str | None = None
     end_date_local: str | None = None
-    secs: list[int] = Field(default_factory=list)
-    values: list[int] = Field(default_factory=list)
-    activity_id: list[str] = Field(default_factory=list)
+    secs: list[int] = Field(default_factory=list[int])
+    values: list[int] = Field(default_factory=list[int])
+    activity_id: list[str] = Field(default_factory=list[str])
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -333,7 +353,7 @@ class HRCurve(BaseModel):
     name: str | None = None
     type: str | None = None
     athlete_id: str | None = None
-    data: list[DataCurvePt] = Field(default_factory=list)
+    data: list[DataCurvePt] = Field(default_factory=list[DataCurvePt])
 
 
 class PaceCurve(BaseModel):
@@ -342,7 +362,7 @@ class PaceCurve(BaseModel):
     name: str | None = None
     type: str | None = None
     athlete_id: str | None = None
-    data: list[DataCurvePt] = Field(default_factory=list)
+    data: list[DataCurvePt] = Field(default_factory=list[DataCurvePt])
 
 
 # ==================== Training Plan Models ====================
@@ -498,7 +518,7 @@ class Gear(BaseModel):
     distance: float | None = None  # Total distance in meters
     moving_time: int | None = Field(None, alias="moving_time")  # Total time in seconds
     activity_count: int | None = Field(None, alias="activity_count")
-    reminders: list[GearReminder] = Field(default_factory=list)
+    reminders: list[GearReminder] = Field(default_factory=list[GearReminder])
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -511,13 +531,13 @@ class HistogramBin(BaseModel):
 
     min: float  # Minimum value for this bin
     max: float  # Maximum value for this bin
-    count: int  # Number of data points in this bin
+    count: int | None = None  # Number of data points (API may omit, returning only secs)
     secs: int | None = None  # Time spent in this bin (seconds)
 
 
 class Histogram(BaseModel):
     """Histogram data for activity metrics."""
 
-    bins: list[HistogramBin] = Field(default_factory=list)
+    bins: list[HistogramBin] = Field(default_factory=list[HistogramBin])
     total_count: int | None = None
     total_secs: int | None = None
