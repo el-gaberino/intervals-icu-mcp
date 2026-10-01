@@ -444,9 +444,6 @@ async def bulk_create_events(
                     error_type="validation_error",
                 )
 
-            # API requires full datetime format
-            event_data["start_date_local"] = event_data["start_date_local"] + "T00:00:00"
-
         async with ICUClient(config) as client:
             created_events = await client.bulk_create_events(events_data)
 
