@@ -8,11 +8,12 @@ A Model Context Protocol (MCP) server for Intervals.icu integration. Access your
 
 ## Overview
 
-This MCP server provides 67 tools to interact with your Intervals.icu account, organized into 12 categories:
+This MCP server provides 71 tools to interact with your Intervals.icu account, organized into 12 categories:
 
 - Activities (10 tools) - Query, search, update, delete, and download activities
 - Activity Analysis (8 tools) - Deep dive into streams, intervals, best efforts, and histograms
 - Athlete (2 tools) - Access profile, fitness metrics, and training load
+- Coaching Analytics (4 tools) - Readiness decisions, weekly load and hard-day summaries, long-ride digests, and ride-type intensity calibration, computed server-side
 - Wellness (3 tools) - Track and update recovery, HRV, sleep, and health metrics
 - Events/Calendar (9 tools) - Manage planned workouts, races, notes with bulk operations and structured workout support
 - Performance/Curves (3 tools) - Analyze power, heart rate, and pace curves
@@ -307,6 +308,17 @@ _Note: The athlete profile resource (`intervals-icu://athlete/profile`) automati
 | `get-athlete-profile` | Get athlete profile with fitness metrics and sport settings     |
 | `get-fitness-summary` | Get detailed CTL/ATL/TSB analysis with training recommendations |
 
+### Coaching Analytics (4 tools)
+
+Deterministic metrics computed server-side, so an LLM coach never does arithmetic in context or reads raw streams.
+
+| Tool                        | Description                                                                                                   |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `get-readiness-snapshot`    | Go / modify / skip for a day: HRV, RHR, sleep, TSB, ACWR and Recovery Index vs rolling baselines (P0–P3 ladder) |
+| `get-load-summary`          | Weekly hours, load, commute and strength counts, power-band hours, and hard days (zone-time ladder), from one query |
+| `get-long-ride-report`      | Long-ride / race digest from streams: NP/IF/HR by hour, Pw:HR change, stops, torque minutes, off-power share     |
+| `get-ride-type-calibration` | Median intensity factor by ride category and duration, for planning-load defaults                              |
+
 ### Wellness (3 tools)
 
 | Tool                    | Description                                                         |
@@ -319,10 +331,10 @@ _Note: The athlete profile resource (`intervals-icu://athlete/profile`) automati
 
 | Tool                    | Description                                                                                               |
 | ----------------------- | --------------------------------------------------------------------------------------------------------- |
-| `get-calendar-events`   | Get planned events and workouts from calendar                                                             |
+| `get-calendar-events`   | Get planned events and workouts from calendar (`include_descriptions=false` for a compact view)             |
 | `get-upcoming-workouts` | Get upcoming planned workouts only                                                                        |
 | `get-event`             | Get details for a specific event                                                                          |
-| `create-event`          | Create events with all 14 categories, structured `workout_doc`, tags, indoor flag, and target metric      |
+| `create-event`          | Create events with all 14 categories, structured `workout_doc`, tags, indoor flag, and target metric. Returns `warnings` for description parser hazards |
 | `update-event`          | Modify existing events including workout structure, tags, and targets                                     |
 | `delete-event`          | Remove events from calendar                                                                               |
 | `bulk-create-events`    | Create multiple events in a single operation                                                              |

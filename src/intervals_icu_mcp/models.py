@@ -76,6 +76,13 @@ class AthleteProfile(BaseModel):
 # ==================== Activity Models ====================
 
 
+class ZoneTime(BaseModel):
+    """Seconds spent in one power zone (id is e.g. "Z1".."Z7" or "SS")."""
+
+    id: str
+    secs: int = 0
+
+
 class ActivitySummary(BaseModel):
     """Summary representation of an activity (for lists)."""
 
@@ -94,6 +101,20 @@ class ActivitySummary(BaseModel):
     average_cadence: float | None = None
     icu_training_load: int | None = None
     icu_intensity: float | None = None
+    # Analysis fields returned by the activities list endpoint (all optional).
+    commute: bool | None = None
+    trainer: bool | None = None
+    icu_ftp: int | None = None
+    lthr: int | None = None
+    icu_weighted_avg_watts: int | None = None
+    icu_joules: int | None = None
+    coasting_time: int | None = None
+    decoupling: float | None = None
+    icu_efficiency_factor: float | None = None
+    icu_zone_times: list[ZoneTime] | None = None
+    icu_hr_zone_times: list[int] | None = None
+    icu_hr_zones: list[int] | None = None
+    icu_power_zones: list[int] | None = None
 
 
 class Activity(ActivitySummary):
@@ -118,8 +139,6 @@ class Activity(ActivitySummary):
     perceived_exertion: int | None = None
     compliance: float | None = None
     avg_lr_balance: float | None = None
-    commute: bool | None = None
-    trainer: bool | None = None
     indoor: bool | None = None
     analyzed: str | None = None
 

@@ -8,6 +8,7 @@ from fastmcp import Context
 
 from ..auth import ICUConfig
 from ..client import ICUAPIError, ICUClient
+from ..coaching_analysis import lint_event_description
 from ..models import Event
 from ..response_builder import ResponseBuilder
 
@@ -191,13 +192,20 @@ async def create_event(
                     f"Invalid workout_doc JSON: {str(e)}", error_type="validation_error"
                 )
 
+        warnings = lint_event_description(description, event_type, category)
+
         async with ICUClient(config) as client:
             event = await client.create_event(event_data)
 
+            metadata: dict[str, Any] = {
+                "message": f"Successfully created {category.lower()}: {name}"
+            }
+            if warnings:
+                metadata["warnings"] = warnings
             return ResponseBuilder.build_response(
                 data=_event_to_dict(event),
                 query_type="create_event",
-                metadata={"message": f"Successfully created {category.lower()}: {name}"},
+                metadata=metadata,
             )
 
     except ICUAPIError as e:
@@ -326,10 +334,17 @@ async def update_event(
         async with ICUClient(config) as client:
             event = await client.update_event(event_id, event_data)
 
+            metadata: dict[str, Any] = {"message": f"Successfully updated event {event_id}"}
+            if description is not None:
+                warnings = lint_event_description(
+                    description, event_type or event.type, event.category
+                )
+                if warnings:
+                    metadata["warnings"] = warnings
             return ResponseBuilder.build_response(
                 data=_event_to_dict(event),
                 query_type="update_event",
-                metadata={"message": f"Successfully updated event {event_id}"},
+                metadata=metadata,
             )
 
     except ICUAPIError as e:
@@ -444,18 +459,28 @@ async def bulk_create_events(
                     error_type="validation_error",
                 )
 
+        warnings: list[str] = []
+        for i, event_data in enumerate(events_data):
+            for warning in lint_event_description(
+                event_data.get("description"), event_data.get("type"), event_data.get("category")
+            ):
+                warnings.append(f"Event {i} ({event_data.get('name')}): {warning}")
+
         async with ICUClient(config) as client:
             created_events = await client.bulk_create_events(events_data)
 
             events_result = [_event_to_dict(event) for event in created_events]
 
+            metadata: dict[str, Any] = {
+                "message": f"Successfully created {len(created_events)} events",
+                "count": len(created_events),
+            }
+            if warnings:
+                metadata["warnings"] = warnings
             return ResponseBuilder.build_response(
                 data={"events": events_result},
                 query_type="bulk_create_events",
-                metadata={
-                    "message": f"Successfully created {len(created_events)} events",
-                    "count": len(created_events),
-                },
+                metadata=metadata,
             )
 
     except ICUAPIError as e:

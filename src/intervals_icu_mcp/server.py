@@ -40,6 +40,12 @@ from .tools.activity_analysis import (
     search_intervals,
 )
 from .tools.athlete import get_athlete_profile, get_fitness_summary
+from .tools.coaching import (
+    get_load_summary,
+    get_long_ride_report,
+    get_readiness_snapshot,
+    get_ride_type_calibration,
+)
 from .tools.curves import get_hr_curves, get_pace_curves
 from .tools.event_management import (
     bulk_create_events,
@@ -116,6 +122,12 @@ mcp.tool()(get_gap_histogram)
 # Register athlete tools
 mcp.tool()(get_athlete_profile)
 mcp.tool()(get_fitness_summary)
+
+# Register coaching-analytics tools
+mcp.tool()(get_readiness_snapshot)
+mcp.tool()(get_load_summary)
+mcp.tool()(get_long_ride_report)
+mcp.tool()(get_ride_type_calibration)
 
 # Register wellness tools
 mcp.tool()(get_wellness_data)
