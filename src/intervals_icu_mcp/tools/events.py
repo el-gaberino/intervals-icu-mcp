@@ -7,6 +7,7 @@ from fastmcp import Context
 
 from ..auth import ICUConfig
 from ..client import ICUAPIError, ICUClient
+from ..formatters import normalize_intensity
 from ..response_builder import ResponseBuilder
 
 
@@ -111,7 +112,7 @@ async def get_calendar_events(
                         event_item["training_load"] = event.icu_training_load
 
                     if event.icu_intensity:
-                        event_item["intensity_factor"] = event.icu_intensity
+                        event_item["intensity_factor"] = normalize_intensity(event.icu_intensity)
 
                 # Description
                 if event.description and include_descriptions:
@@ -121,7 +122,7 @@ async def get_calendar_events(
 
             # Calculate summary
             workout_count = sum(1 for e in events if e.category == "WORKOUT")
-            race_count = sum(1 for e in events if e.category == "RACE")
+            race_count = sum(1 for e in events if (e.category or "").startswith("RACE"))
             note_count = sum(1 for e in events if e.category == "NOTE")
             goal_count = sum(1 for e in events if e.category == "GOAL")
 
@@ -230,7 +231,7 @@ async def get_upcoming_workouts(
                     workout_item["training_load"] = workout.icu_training_load
 
                 if workout.icu_intensity:
-                    workout_item["intensity_factor"] = workout.icu_intensity
+                    workout_item["intensity_factor"] = normalize_intensity(workout.icu_intensity)
 
                 # Workout description
                 if workout.description:
@@ -303,7 +304,7 @@ async def get_event(
             if event.icu_training_load:
                 metrics["training_load"] = event.icu_training_load
             if event.icu_intensity:
-                metrics["intensity_factor"] = event.icu_intensity
+                metrics["intensity_factor"] = normalize_intensity(event.icu_intensity)
             if event.joules:
                 metrics["joules"] = event.joules
             if event.joules_above_ftp:

@@ -78,6 +78,9 @@ async def get_readiness_snapshot(
 async def get_load_summary(
     start_date: Annotated[str, "First day (YYYY-MM-DD)"],
     end_date: Annotated[str | None, "Last day (YYYY-MM-DD). Defaults to today."] = None,
+    totals_only: Annotated[
+        bool, "Return only the totals (no per-week rows); use for long ranges like a year"
+    ] = False,
     ctx: Context | None = None,
 ) -> str:
     """Weekly training summary with hard-day classification, from one activities query.
@@ -85,8 +88,11 @@ async def get_load_summary(
     Per Monday-start week: ride hours, all hours, load, ride and strength counts,
     commute hours, longest ride, hours by power band (Z1-2 / Z3-4 / Z5+), hard days
     (zone-time ladder: Z3+ >= 30 min, Z4+ >= 10, Z5+ >= 5, Z6+ >= 2, Z7 >= 1; HR
-    fallback) with the rides that produced them, and CTL at week end. Use this
-    instead of pulling activities one by one for weekly or season reviews.
+    fallback) with the rides that produced them, and CTL at week end. Weeks that
+    the date range cuts off are marked partial; totals report the median and range
+    of ride hours over full weeks only, plus the five longest rides. Use this
+    instead of pulling activities one by one for weekly or season reviews; pass
+    totals_only=True for a year-long range (~1 KB instead of ~30 KB).
     """
     assert ctx is not None
     config: ICUConfig = ctx.get_state("config")
@@ -103,6 +109,8 @@ async def get_load_summary(
             activities = await client.get_activities(oldest=start_date, newest=end, limit=5000)
             wellness = await client.get_wellness(oldest=start_date, newest=end)
         result = load_summary(activities, wellness, start_date, end)
+        if totals_only:
+            result = {"totals": result["totals"]}
         return ResponseBuilder.build_response(
             data=result,
             query_type="load_summary",
@@ -127,8 +135,9 @@ async def get_long_ride_report(
 
     Returns NP, IF and HR by elapsed hour, Pw:HR change (second vs first half),
     intervals.icu decoupling, off-power share, pedaling power percentiles, stops,
-    time above LTHR, singlespeed torque minutes (<60 rpm at >250 W, <50 rpm at
-    >300 W), and the hard-stimulus classification. Raw streams never leave the
+    time above LTHR, singlespeed torque minutes (<60 rpm above Z3 and <50 rpm above
+    Z4, FTP-relative; the fixed <60 rpm >250 W and <50 rpm >300 W keys are kept for
+    continuity), and the hard-stimulus classification. Raw streams never leave the
     server, so this is cheap to call even for a 16-hour race.
     """
     assert ctx is not None

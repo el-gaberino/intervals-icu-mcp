@@ -1,18 +1,103 @@
 """Sport-specific settings tools for FTP, FTHR, pace thresholds, and zones."""
 
+import math
 from typing import Annotated, Any
 
 from fastmcp import Context
 
 from ..auth import ICUConfig
 from ..client import ICUAPIError, ICUClient
+from ..models import SportSettings
 from ..response_builder import ResponseBuilder
+
+
+def _power_zone_table(
+    ftp: int, bounds: list[float], names: list[str] | None
+) -> list[dict[str, Any]]:
+    """Zone watts from %-of-FTP upper bounds, rounded down like intervals.icu (no gaps)."""
+    zones: list[dict[str, Any]] = []
+    prev_top = 0
+    for i, pct in enumerate(bounds):
+        top = None if pct >= 999 else math.floor(ftp * pct / 100 + 1e-9)
+        zones.append(
+            {
+                "zone": f"Z{i + 1}",
+                "name": names[i] if names and i < len(names) else None,
+                "pct_max": None if top is None else pct,
+                "watts_min": prev_top + 1,
+                "watts_max": top,
+            }
+        )
+        prev_top = top if top is not None else prev_top
+    return zones
+
+
+def _hr_zone_table(bounds: list[int], names: list[str] | None) -> list[dict[str, Any]]:
+    zones: list[dict[str, Any]] = []
+    prev_top = -1
+    for i, top in enumerate(bounds):
+        zones.append(
+            {
+                "zone": f"Z{i + 1}",
+                "name": names[i] if names and i < len(names) else None,
+                "bpm_min": prev_top + 1,
+                "bpm_max": top,
+            }
+        )
+        prev_top = top
+    return zones
+
+
+def format_sport_settings(settings: SportSettings) -> dict[str, Any]:
+    """One sport-settings entry as a compact dict: thresholds plus zone tables."""
+    types = settings.types or ([settings.type] if settings.type else [])
+    info: dict[str, Any] = {
+        "id": settings.id,
+        "type": types[0] if types else None,
+        "types": types,
+    }
+    if settings.ftp is not None:
+        info["ftp_watts"] = settings.ftp
+    if settings.indoor_ftp is not None:
+        info["indoor_ftp_watts"] = settings.indoor_ftp
+    if settings.lthr is not None:
+        info["lthr_bpm"] = settings.lthr
+    if settings.max_hr is not None:
+        info["max_hr_bpm"] = settings.max_hr
+    if settings.fthr is not None:
+        info["fthr_bpm"] = settings.fthr
+    if settings.ftp and settings.power_zones:
+        info["power_zones"] = _power_zone_table(
+            settings.ftp, settings.power_zones, settings.power_zone_names
+        )
+        if settings.sweet_spot_min is not None and settings.sweet_spot_max is not None:
+            info["sweet_spot"] = {
+                "pct_min": settings.sweet_spot_min,
+                "pct_max": settings.sweet_spot_max,
+                "watts_min": math.floor(settings.ftp * settings.sweet_spot_min / 100 + 1e-9),
+                "watts_max": math.floor(settings.ftp * settings.sweet_spot_max / 100 + 1e-9),
+            }
+    if settings.hr_zones:
+        info["hr_zones"] = _hr_zone_table(settings.hr_zones, settings.hr_zone_names)
+    if settings.w_prime is not None:
+        info["w_prime_j"] = settings.w_prime
+    if settings.p_max is not None:
+        info["p_max_watts"] = settings.p_max
+    if settings.threshold_pace is not None:
+        info["threshold_pace"] = {"value": settings.threshold_pace, "units": settings.pace_units}
+    if settings.updated:
+        info["updated"] = settings.updated
+    return info
 
 
 async def get_sport_settings(
     ctx: Context | None = None,
 ) -> str:
-    """Get all sport-specific settings (FTP, FTHR, pace thresholds, zones).
+    """Get all sport-specific settings: FTP (outdoor and indoor), LTHR, Max HR, zones.
+
+    One entry per sport group (e.g. Ride/GravelRide/VirtualRide share one). Power
+    zones come back as watt ranges computed from FTP (rounded down, as intervals.icu
+    does) and HR zones as bpm ranges.
 
     Returns:
         Formatted list of sport settings with thresholds and zones
@@ -29,38 +114,7 @@ async def get_sport_settings(
                     {"message": "No sport settings found"}, metadata={"count": 0}
                 )
 
-            settings_data: list[dict[str, Any]] = []
-
-            for settings in settings_list:
-                sport_info: dict[str, Any] = {
-                    "id": settings.id,
-                    "type": settings.type,
-                }
-
-                # Power settings (cycling)
-                if settings.ftp is not None:
-                    sport_info["ftp_watts"] = settings.ftp
-
-                # Heart rate settings
-                if settings.fthr is not None:
-                    sport_info["fthr_bpm"] = settings.fthr
-
-                # Pace settings (running/swimming)
-                if settings.pace_threshold is not None:
-                    # Convert to min:sec per km
-                    pace_secs = settings.pace_threshold * 60
-                    minutes = int(pace_secs // 60)
-                    seconds = int(pace_secs % 60)
-                    sport_info["pace_threshold"] = f"{minutes}:{seconds:02d} /km"
-
-                if settings.swim_threshold is not None:
-                    # Convert to min:sec per 100m
-                    swim_secs = settings.swim_threshold * 60
-                    minutes = int(swim_secs // 60)
-                    seconds = int(swim_secs % 60)
-                    sport_info["swim_threshold"] = f"{minutes}:{seconds:02d} /100m"
-
-                settings_data.append(sport_info)
+            settings_data = [format_sport_settings(settings) for settings in settings_list]
 
             return ResponseBuilder.build_response(
                 {"sport_settings": settings_data},

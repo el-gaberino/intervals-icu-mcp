@@ -257,6 +257,13 @@ def format_training_load(load: int | None) -> str:
     return f"{load}"
 
 
+def normalize_intensity(value: float | None) -> float | None:
+    """intervals.icu returns IF as a percentage (e.g. 77.9); normalise to a fraction (0.779)."""
+    if value is None:
+        return None
+    return round(value / 100, 3) if value > 2 else value
+
+
 def format_intensity(intensity: float | None) -> str:
     """Format intensity factor.
 

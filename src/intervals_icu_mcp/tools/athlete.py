@@ -65,8 +65,11 @@ async def get_athlete_profile(
                     fitness["ctl"] = round(wellness.ctl, 1)
                 if wellness.atl is not None:
                     fitness["atl"] = round(wellness.atl, 1)
-                if wellness.tsb is not None:
-                    fitness["tsb"] = round(wellness.tsb, 1)
+                profile_tsb = wellness.tsb
+                if profile_tsb is None and wellness.ctl is not None and wellness.atl is not None:
+                    profile_tsb = wellness.ctl - wellness.atl
+                if profile_tsb is not None:
+                    fitness["tsb"] = round(profile_tsb, 1)
                 if wellness.ramp_rate is not None:
                     fitness["ramp_rate"] = round(wellness.ramp_rate, 1)
 
@@ -75,10 +78,19 @@ async def get_athlete_profile(
             if athlete.sport_settings:
                 for sport in athlete.sport_settings:
                     sport_data: dict[str, Any] = {}
-                    if sport.type:
-                        sport_data["type"] = sport.type
+                    sport_type = sport.type or (sport.types[0] if sport.types else None)
+                    if sport_type:
+                        sport_data["type"] = sport_type
+                    if sport.types:
+                        sport_data["types"] = sport.types
                     if sport.ftp:
                         sport_data["ftp"] = sport.ftp
+                    if sport.indoor_ftp:
+                        sport_data["indoor_ftp"] = sport.indoor_ftp
+                    if sport.lthr:
+                        sport_data["lthr"] = sport.lthr
+                    if sport.max_hr:
+                        sport_data["max_hr"] = sport.max_hr
                     if sport.fthr:
                         sport_data["fthr"] = sport.fthr
                     if sport.pace_threshold:
@@ -99,7 +111,7 @@ async def get_athlete_profile(
 
             # Analysis (uses wellness-sourced fitness data)
             analysis: dict[str, Any] = {}
-            tsb = wellness.tsb if wellness is not None else None
+            tsb = fitness.get("tsb")
             ramp_rate = wellness.ramp_rate if wellness is not None else None
 
             if tsb is not None:
@@ -214,6 +226,11 @@ async def get_fitness_summary(
                     ],
                 )
 
+            # intervals.icu wellness records usually carry CTL and ATL but not TSB.
+            tsb = wellness.tsb
+            if tsb is None and wellness.ctl is not None and wellness.atl is not None:
+                tsb = wellness.ctl - wellness.atl
+
             # Core metrics
             fitness: dict[str, Any] = {}
             if wellness.ctl is not None:
@@ -228,9 +245,9 @@ async def get_fitness_summary(
                     "description": "Acute Training Load (Fatigue)",
                     "explanation": "Short-term training load (7-day weighted average)",
                 }
-            if wellness.tsb is not None:
+            if tsb is not None:
                 fitness["tsb"] = {
-                    "value": round(wellness.tsb, 1),
+                    "value": round(tsb, 1),
                     "description": "Training Stress Balance (Form)",
                     "explanation": "Fitness - Fatigue",
                 }
@@ -244,17 +261,17 @@ async def get_fitness_summary(
             analysis: dict[str, Any] = {}
 
             # TSB interpretation
-            if wellness.tsb is not None:
-                if wellness.tsb > 20:
+            if tsb is not None:
+                if tsb > 20:
                     analysis["form_status"] = "very_fresh"
                     analysis["form_interpretation"] = "You're very fresh - good for racing!"
-                elif wellness.tsb > 5:
+                elif tsb > 5:
                     analysis["form_status"] = "recovered"
                     analysis["form_interpretation"] = "You're recovered and ready for hard training"
-                elif wellness.tsb > -10:
+                elif tsb > -10:
                     analysis["form_status"] = "optimal"
                     analysis["form_interpretation"] = "Optimal zone - productive training possible"
-                elif wellness.tsb > -30:
+                elif tsb > -30:
                     analysis["form_status"] = "fatigued"
                     analysis["form_interpretation"] = (
                         "You're accumulating fatigue - recovery may be needed"
@@ -287,14 +304,14 @@ async def get_fitness_summary(
 
             # Training recommendations
             recommendations: list[str] = []
-            if wellness.tsb is not None and wellness.ramp_rate is not None:
-                if wellness.tsb < -30:
+            if tsb is not None and wellness.ramp_rate is not None:
+                if tsb < -30:
                     recommendations.append("Take an easy week or rest days")
                     recommendations.append("Focus on recovery and low-intensity activities")
-                elif wellness.tsb < -10 and wellness.ramp_rate > 5:
+                elif tsb < -10 and wellness.ramp_rate > 5:
                     recommendations.append("Balance hard training with recovery")
                     recommendations.append("Consider a recovery week soon")
-                elif wellness.tsb > 5:
+                elif tsb > 5:
                     if wellness.ramp_rate < 0:
                         recommendations.append("Good time to increase training load")
                         recommendations.append("Consider adding volume or intensity")

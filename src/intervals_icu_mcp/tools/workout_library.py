@@ -8,6 +8,7 @@ from fastmcp import Context
 
 from ..auth import ICUConfig
 from ..client import ICUAPIError, ICUClient
+from ..formatters import normalize_intensity
 from ..models import Workout
 from ..response_builder import ResponseBuilder
 
@@ -53,7 +54,7 @@ def _workout_to_dict(workout: Workout) -> dict[str, Any]:
     if workout.icu_training_load:
         metrics["training_load"] = workout.icu_training_load
     if workout.icu_intensity:
-        metrics["intensity_factor"] = workout.icu_intensity
+        metrics["intensity_factor"] = normalize_intensity(workout.icu_intensity)
     if workout.joules:
         metrics["joules"] = workout.joules
     if workout.joules_above_ftp:

@@ -33,8 +33,23 @@ class SportSettings(BaseModel):
 
     id: int
     type: str | None = None
+    types: list[str] = Field(default_factory=list)
     ftp: int | None = None
+    indoor_ftp: int | None = None
+    lthr: int | None = None
+    max_hr: int | None = None
     fthr: int | None = None
+    power_zones: list[float] | None = None
+    power_zone_names: list[str] | None = None
+    hr_zones: list[int] | None = None
+    hr_zone_names: list[str] | None = None
+    sweet_spot_min: float | None = None
+    sweet_spot_max: float | None = None
+    w_prime: int | None = None
+    p_max: int | None = None
+    threshold_pace: float | None = None
+    pace_units: str | None = None
+    updated: str | None = None
     pace_threshold: float | None = None
     swim_threshold: float | None = None
 

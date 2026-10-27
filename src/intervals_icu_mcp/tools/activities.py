@@ -7,6 +7,7 @@ from fastmcp import Context
 
 from ..auth import ICUConfig
 from ..client import ICUAPIError, ICUClient
+from ..formatters import normalize_intensity
 from ..response_builder import ResponseBuilder
 
 
@@ -85,7 +86,7 @@ async def get_recent_activities(
                 if activity.icu_training_load:
                     activity_item["training_load"] = activity.icu_training_load
                 if activity.icu_intensity:
-                    activity_item["intensity_factor"] = activity.icu_intensity
+                    activity_item["intensity_factor"] = normalize_intensity(activity.icu_intensity)
 
                 activities_data.append(activity_item)
 
@@ -190,7 +191,7 @@ async def get_activity_details(
             if activity.icu_training_load:
                 training_metrics["training_load"] = activity.icu_training_load
             if activity.icu_intensity:
-                training_metrics["intensity_factor"] = activity.icu_intensity
+                training_metrics["intensity_factor"] = normalize_intensity(activity.icu_intensity)
             if activity.tss:
                 training_metrics["tss"] = round(activity.tss, 0)
             if activity.hrss:
@@ -720,7 +721,7 @@ async def search_activities_full(
                 if activity.icu_training_load:
                     activity_item["training_load"] = activity.icu_training_load
                 if activity.icu_intensity:
-                    activity_item["intensity_factor"] = activity.icu_intensity
+                    activity_item["intensity_factor"] = normalize_intensity(activity.icu_intensity)
 
                 activities_data.append(activity_item)
 

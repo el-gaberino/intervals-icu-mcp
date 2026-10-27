@@ -21,7 +21,12 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from .formatters import normalize_intensity
 from .models import ActivitySummary, Wellness, ZoneTime
+
+# Low-cadence "torque" thresholds as a fraction of FTP (top of Z2, top of Z3).
+TORQUE_Z3_PCT = 0.75
+TORQUE_Z4_PCT = 0.90
 
 # ---------------------------------------------------------------------------
 # Hard-day classification
@@ -274,9 +279,7 @@ def readiness_snapshot(
 
 def _intensity(value: float | None) -> float | None:
     """intervals.icu returns IF as a percentage (e.g. 51.5); normalise to a fraction."""
-    if value is None:
-        return None
-    return value / 100 if value > 2 else value
+    return normalize_intensity(value)
 
 
 def _monday(d: date) -> date:
@@ -370,6 +373,7 @@ def load_summary(
 
     week_list: list[dict[str, Any]] = []
     for wk, w in sorted(weeks.items()):
+        w["partial"] = wk < start or wk + timedelta(days=6) > end
         week_end = min(wk + timedelta(days=6), end)
         ctl_end: float | None = None
         d = week_end
@@ -392,8 +396,15 @@ def load_summary(
 
     n = len(week_list) or 1
     ride_hours = [w["ride_hours"] for w in week_list]
+    full_hours = [w["ride_hours"] for w in week_list if not w["partial"]]
     totals = {
         "weeks": len(week_list),
+        "full_weeks": len(full_hours),
+        "median_ride_hours_full_weeks": (
+            round(statistics.median(full_hours), 1) if full_hours else None
+        ),
+        "min_ride_hours_full_weeks": min(full_hours) if full_hours else None,
+        "max_ride_hours_full_weeks": max(full_hours) if full_hours else None,
         "ride_hours": round(sum(ride_hours), 1),
         "avg_ride_hours_per_week": round(sum(ride_hours) / n, 1),
         "weeks_at_or_above_10h": sum(1 for h in ride_hours if h >= 10),
@@ -403,6 +414,19 @@ def load_summary(
         "avg_hard_days_per_week": round(sum(w["hard_day_count"] for w in week_list) / n, 1),
         "strength_sessions": sum(w["strength_sessions"] for w in week_list),
     }
+    rides: list[dict[str, Any]] = [
+        {
+            "date": a.start_date_local.date().isoformat(),
+            "name": a.name,
+            "type": a.type,
+            "moving_hours": round((a.moving_time or 0) / 3600, 2),
+            "if": _r(_intensity(a.icu_intensity), 2),
+        }
+        for a in activities
+        if is_ride(a.type) and start <= a.start_date_local.date() <= end
+    ]
+    longest = sorted(rides, key=lambda r: float(r["moving_hours"]), reverse=True)[:5]
+    totals["longest_rides"] = longest
     return {"weeks": week_list, "totals": totals}
 
 
@@ -569,6 +593,18 @@ def long_ride_metrics(
                 sum(1 for i in range(n) if cad[i] and cad[i] < 50 and w[i] > 300) / 60, 1
             ),
         }
+        # FTP-relative grind: low cadence at Z3+ (>75% FTP) and Z4+ (>90% FTP). The fixed
+        # 250/300 W keys above are kept for continuity; these scale to any rider.
+        if ftp:
+            z3_floor = ftp * TORQUE_Z3_PCT
+            z4_floor = ftp * TORQUE_Z4_PCT
+            torque["minutes_below_60rpm_above_z3"] = round(
+                sum(1 for i in range(n) if cad[i] and cad[i] < 60 and w[i] > z3_floor) / 60, 1
+            )
+            torque["minutes_below_50rpm_above_z4"] = round(
+                sum(1 for i in range(n) if cad[i] and cad[i] < 50 and w[i] > z4_floor) / 60, 1
+            )
+            torque["ftp_relative_thresholds_w"] = {"z3": round(z3_floor), "z4": round(z4_floor)}
 
     hr_vals = [float(x) for x in hr if x]
     return {
